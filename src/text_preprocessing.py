@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 import re
 import string
-data_dir = '/home/hsienchin/transfer_learning/data/'
+data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
 
 dataframes = {
     "cooking": pd.read_csv(data_dir + "cooking.csv"),

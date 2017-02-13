@@ -30,7 +30,7 @@ def inverse_frequency(doc):
 
 
 if __name__ == 'main':
-    data_dir = '/home/hsienchin/transfer_learning/data/'
+    data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
     data_type = '_light.csv'
     dataframes = {
         "cooking": pd.read_csv(data_dir + "cooking" + data_type),
