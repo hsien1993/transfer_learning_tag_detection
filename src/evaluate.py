@@ -1,7 +1,7 @@
 import pandas as pd
 import re
 def f1_score(ans, ref, isBigram=False):
-    prediction = ans.split(' ')
+    prediction = ans.split()
     reference = []
     if isBigram:
         reference = ref.split()
