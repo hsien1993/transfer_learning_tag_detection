@@ -10,10 +10,11 @@ for data_class in data:
     for title in data[data_class]['title']:
         raw_sentences.append(title)
     for content in data[data_class]['content']:
-        raw_sentences.append(content)
+        for sentence in nltk.sent_tokenize(content):
+            raw_sentences.append(sentence)
 print "tokenize..."
 sentences = map(nltk.word_tokenize, raw_sentences)
 print "training model..."
 model = gensim.models.Word2Vec(sentences, min_count=5, size=200, workers=4)
 print "save model..."
-model.save('my_word2vec')
+model.save('my_word2vec_2')

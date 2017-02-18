@@ -1,6 +1,9 @@
 import pandas as pd
 import tf_idf
 import random
+import nltk
+from collections import Counter
+
 def load_data(data_dir, data_type):
     # for example:  data_type = '_light.csv'
     #               data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
@@ -15,34 +18,38 @@ def load_data(data_dir, data_type):
     return dataframes
 
 def word_count(doc):
-    from collections import Counter
-    import nltk
     sentence = ' '.join([title for title in doc['title']]) + ' ' + ' '.join([content for content in doc['content']])
     tokens = nltk.word_tokenize(sentence)
     word2count = Counter(tokens)
-    '''
-    word2count = {}
-    for title in doc['title']:
-        for word in tf_idf.clean_string(title).split():
-            if word not in word2count:
-                word2count[word] = 0
-            word2count[word] += 1
-    for content in doc['content']:
-        for word in tf_idf.clean_string(content).split():
-            if word not in word2count:
-                word2count[word] = 0
-            word2count[word] += 1
-    '''
     return word2count
 
 def find_position(word, sentence):
-    #sentence = tf_idf.clean_string(sentence)
-    #sentence = sentence.split()
-    #if word in sentence:
-    import nltk
     if word in nltk.word_tokenize(sentence):
         return sentence.index(word)
     return 0
+
+def make_cnn_feature(data_light, data_with_stop_words, word_embedding_size=200, sent_size=10, word2vec_model_name):
+    import gensim
+    from nltk import word_tokenize, sent_tokenize, pos_tag
+    import numpy as np
+    try:
+        word2vec_model = gensim.models.Word2Vec(word2vec_model_name)
+        print "read word2vec model..."
+    except:
+        print "no pretrained word2vec model..."
+    
+    all_pos_tag = ['CC','CD','DT','EX','FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP$','RB','RBR','RBS','RP','SYM','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB']
+    word_embedding = []
+    pos_tag_vec = []
+    y_haveTag = []
+    y_TagPosition = []
+    for title in data_with_stop_words['title']:
+        words = word_tokenize(title)
+        temp = np.zeros((sent_size,word_embedding_size))
+        if len(words) < sent_size:
+            
+            temp.append(
+        
 
 def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
     # for example: data_light = dataframe['cooking']
