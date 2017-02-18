@@ -4,3 +4,4 @@ data/*
 *.csv
 *.hdf5
 *.npz
+*.model
