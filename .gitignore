@@ -3,3 +3,4 @@ data/*
 *.pyc
 *.csv
 *.hdf5
+*.npz

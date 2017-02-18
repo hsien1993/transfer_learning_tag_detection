@@ -12,10 +12,12 @@ def f1_score(ans, ref, isBigram=False):
     tp = len(prediction & reference)
     fp = len(prediction) - tp
     fn = len(reference) - tp
-    precision = float(tp)/(tp+fp)
-    recall = float(tp)/(tp+fn)
+    if len(prediction) == 0:
+        return 0,0,0
     if tp == 0:
         return 0,0,0
+    precision = float(tp)/(tp+fp)
+    recall = float(tp)/(tp+fn)
     return precision, recall, 2*((precision*recall)/(precision+recall))    
 '''
 data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'

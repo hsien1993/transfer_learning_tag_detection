@@ -2,7 +2,7 @@ import RAKE
 import pandas as pd
 import evaluate 
 data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
-with_out_stopwords = '_light.csv'
+with_out_stopwords = '_with_stop_words.csv'
 isBigram = 0
 title_only = 0
 dataframes = {
@@ -31,11 +31,12 @@ for df in dataframes:
             ans.append(str(s))
         else:
             content = str(dataframes[df]['content'][index])
-            sen = title + content
+            sen = title + ' ' + content
             s = ""
             for a in rake_object.run(sen):
                 s += a[0]
             ans.append(str(s))
+            #ans.append(sen)
 
     for index, tags in enumerate(dataframes[df]['tags']):
         p,r,f = evaluate.f1_score(ans[index],tags,isBigram)
