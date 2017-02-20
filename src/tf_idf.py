@@ -1,6 +1,7 @@
 import pandas as pd
 import math
 import re
+import nltk
 def clean_string(s):
     s = str(s)
     if len(s) > 0:
@@ -37,15 +38,17 @@ def inverse_frequency(whole_doc, opt='smooth'):
     content_word = {}
     for index, title in enumerate(whole_doc['title']):
         all_doc_num += 1
-        title = clean_string(title)
+        #title = clean_string(title)
         doc_id = whole_doc['id'][index]
-        for word in title.split():
+        #for word in title.split():
+        for word in nltk.word_tokenize(title):
             if word not in title_word:
                 title_word[word] = []
             if doc_id not in title_word[word]:
                 title_word[word].append(doc_id)
  
-        for word in clean_string(whole_doc['content'][index]).split():
+        #for word in clean_string(whole_doc['content'][index]).split():
+        for word in nltk.word_tokenize(whole_doc['content'][index]):
             if word not in content_word:
                 content_word[word] = []
             if doc_id not in content_word[word]:

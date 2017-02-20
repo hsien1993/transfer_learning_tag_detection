@@ -37,15 +37,11 @@ def find_position(word, sentence):
         return sentence.index(word)
     return 0
 
-def make_cnn_feature(data_light, data_with_stop_words, word_embedding_size=200, sent_size=10, word2vec_model_name):
+def make_cnn_feature(data_light, data_with_stop_word, word2vec_model_name, word_embedding_size=200, sent_size=10):
     import gensim
     from nltk import word_tokenize, sent_tokenize, pos_tag
     import numpy as np
-    try:
-        word2vec_model = gensim.models.Word2Vec(word2vec_model_name)
-        print "read word2vec model..."
-    except:
-        print "no pretrained word2vec model..."
+    word2vec_model = gensim.models.Word2Vec.load(word2vec_model_name)
     feature_size = 7
     all_pos_tag = ['CC','CD','DT','EX','FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP$','RB','RBR','RBS','RP','SYM','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB']
     x_word_embedding = []
@@ -53,49 +49,56 @@ def make_cnn_feature(data_light, data_with_stop_words, word_embedding_size=200, 
     x_tf_idf = []
     y_hasTag = []
     y_TagPosition = []
-    title_idf, content_idf = tf_idf.inverse_frequency(data_light, opt='smooth')
-    word2count = word_count(data_light)
+    print "counting idf..."
+    title_idf, content_idf = tf_idf.inverse_frequency(data_with_stop_word, opt='smooth')
+    print "counting words..."
+    word2count = word_count(data_with_stop_word)
     max_word_count = float(max(word2count.values()))
     title_content = ['title', 'content']
     for col in title_content:
-        for index, sen in enumerate(data_with_stop_words[col]):
-            words = word_tokenize(sen)
-            words_light = word_tokenize(data_light[col][index])
-            tags = clean_tag(data_with_stop_word['tags'][index])
-            hasTag = False
-            word_embedding = np.zeros((sent_size, word_embedding_size))
-            word_tf_idf = np.zeros((sent_size, feature_size))
-            pos_tag_seq = [0] * sent_size
-            position = [0] * sent_size
-            if len(words) < sent_size:
-                pos_tags = pos_tag(words)
-                for i in range(0, sent_size):
-                    word_embedding[i] = model[words[i]]
-                    tf = tf_idf.term_frequency(words[i], sen)
-                    word_tf_idf[i][0] = tf                                  #tf
-                    if col == 'title':                                      #idf
-                        word_tf_idf[i][1] = title_idf[words[i]]             
+        print "doing "+col+"..."
+        for index, text in enumerate(data_with_stop_word[col]):
+            sentences = sent_tokenize(text)
+            for sen in sentences:
+                print "sen: " + sen
+                words = word_tokenize(sen)
+                words_light = word_tokenize(data_light[col][index])
+                tags = clean_tag(data_with_stop_word['tags'][index])
+                hasTag = False
+                word_embedding = np.zeros((sent_size, word_embedding_size))
+                word_tf_idf = np.zeros((sent_size, feature_size))
+                pos_tag_seq = [0] * sent_size
+                position = [0] * sent_size
+                if len(words) < sent_size:
+                    pos_tags = pos_tag(words)
+                    for i in range(0, min(sent_size,len(words))):
+                        word_embedding[i] = word2vec_model[words[i]]
+                        tf = tf_idf.term_frequency(words[i], sen)
+                        word_tf_idf[i][0] = tf                                  #tf
+                        if col == 'title':                                      #idf
+                            word_tf_idf[i][1] = title_idf[words[i]]             
+                        else:
+                            word_tf_idf[i][1] = content_idf[words[i]]
+                        word_tf_idf[i][2] = tf*word_tf_idf[i][1]                #tf-idf
+                        word_tf_idf[i][3] = 1 if col == 'title' else 0          #is title
+                        word_tf_idf[i][4] = 1 if words[i] in words_light else 0  #is not stop word
+                        word_tf_idf[i][5] = word2count[words[i]]/max_word_count #word count
+                        word_tf_idf[i][6] = find_position(words[i], sen)
+                        if pos_tags[i][1] in all_pos_tag :
+                            pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
+                    x_word_embedding.append(word_embedding)
+                    x_tf_idf.append(word_tf_idf)
+                    x_pos_tag_seq.append(pos_tag_seq)
+                    print "pos: ", pos_tag_seq
+                    for tag in tags:
+                        if tag in words:
+                            hasTag = True
+                            position[words.index(tag)] = 1
+                    if hasTag:
+                        y_hasTag.append([1,0])
                     else:
-                        word_tf_idf[i][1] = content_idf[words[i]]
-                    word_tf_idf[i][2] = tf*word_tf_idf[i][1]                #tf-idf
-                    word_tf_idf[i][3] = 1 if col == 'title' else 0          #is title
-                    word_tf_idf[i][4] = 1 if word[i] in words_light else 0  #is not stop word
-                    word_tf_idf[i][5] = word2count[words[i]]/max_word_count #word count
-                    word_tf_idf[i][6] = find_position(word, sen)
-                    if pos_tags[i][1] in all_pos_tag :
-                        pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
-                x_word_embedding.append(word_embedding)
-                x_tf_idf.append(word_tf_idf)
-                x_pos_tag_seq.append(pos_tag_seq)
-                for tag in tags:
-                    if tag in words:
-                        hasTag = True
-                        position[words.index(tag)] = 1
-                if hasTag:
-                    y_hasTag.append([1,0])
-                else:
-                    y_hasTag.append([0,1])
-                y_TagPosition.append(position)
+                        y_hasTag.append([0,1])
+                    y_TagPosition.append(position)
     return x_word_embedding, x_tf_idf, x_pos_tag_seq, y_hasTag, y_TagPosition
     
 
