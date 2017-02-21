@@ -5,3 +5,4 @@ data/*
 *.hdf5
 *.npz
 *.model
+*.npy

@@ -26,8 +26,9 @@ def removePunctuation(x):
     x = re.sub(r'[^\x00-\x7f]',r' ',x)
     # Removing (replacing with empty spaces actually) all the punctuations, without !?.
     #return re.sub("["+string.punctuation+"]", " ", x) 
-    return re.sub("[" + '"#$%&\'()*+-/:;<=>@[\\]^_`{|}~' + "]", " ", x)
-    #return x
+    x = re.sub("[" + '"#$%&\'()*+-/:;<=>@[]^_`{|}~' + "]", " ", x)
+    x = re.sub(r'["()-/:]', r" ", x)
+    return x
 
 if __name__ == '__main__':
     data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
@@ -57,7 +58,7 @@ if __name__ == '__main__':
 
     print(dataframes["robotics"].iloc[10])
     for name, df in dataframes.items():
-        df.to_csv(data_dir + name + "_with_stop_words_2.csv", index=False)
+        df.to_csv(data_dir + name + "_with_stop_words_3.csv", index=False)
     '''
     def removeFinal(x):
         return re.sub("!?.", " ", x)

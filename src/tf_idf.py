@@ -5,18 +5,19 @@ import nltk
 def clean_string(s):
     s = str(s)
     if len(s) > 0:
-        return re.sub('\.|\!|\?',' ',s)
+        return nltk.word_tokenize(s)
+#        return re.sub('\.|\!|\?',' ',s).split()
     return s
 
 def term_frequency(term, doc, opt='log'):
     doc = clean_string(doc)
     if opt == 'simple':
-        if term in doc.split():
+        if term in doc:
             return 1.0
         return 0.0
     elif opt == 'log':
         t = 0
-        for w in doc.split():
+        for w in doc:
             if w == term:
                 t += 1
         if t == 0:
@@ -24,7 +25,7 @@ def term_frequency(term, doc, opt='log'):
         return 1 + math.log(t)
     elif opt == 'aug':
         word = {}
-        for w in doc.split():
+        for w in doc:
             if w not in word:
                 word[w] = 0
             word[w] += 1
@@ -38,16 +39,13 @@ def inverse_frequency(whole_doc, opt='smooth'):
     content_word = {}
     for index, title in enumerate(whole_doc['title']):
         all_doc_num += 1
-        #title = clean_string(title)
         doc_id = whole_doc['id'][index]
-        #for word in title.split():
         for word in nltk.word_tokenize(title):
             if word not in title_word:
                 title_word[word] = []
             if doc_id not in title_word[word]:
                 title_word[word].append(doc_id)
  
-        #for word in clean_string(whole_doc['content'][index]).split():
         for word in nltk.word_tokenize(whole_doc['content'][index]):
             if word not in content_word:
                 content_word[word] = []

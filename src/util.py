@@ -36,6 +36,22 @@ def find_position(word, sentence):
     if word in nltk.word_tokenize(sentence):
         return sentence.index(word)
     return 0
+'''
+def make_cnn_feature(data, w2v_model_name, w2v_size, sent_len=20):
+    title_idf, content_idf = tf_idf.inverse_frequency(data)
+    w2v_model = gensim.models.Word2Vec.load(w2v_model_name)
+    feature = {}
+    feature['w2v'] = {}
+    feature['tfidf'] = {}
+    feature['pos'] = {}
+    feature['text'] = {}
+    # title
+    for title in data['title']:
+        a
+'''
+
+
+
 
 def make_cnn_feature(data_light, data_with_stop_word, word2vec_model_name, word_embedding_size=200, sent_size=10):
     import gensim
@@ -103,6 +119,7 @@ def make_cnn_feature(data_light, data_with_stop_word, word2vec_model_name, word_
     
 
 def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
+
     # for example: data_light = dataframe['cooking']
     x = []
     y = []
@@ -110,6 +127,59 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
     word2count = word_count(data_light)
     max_word_count = float(max(word2count.values()))
     for index, title in enumerate(data_light['title']):
+        #tags = data_light['tags'][index]).split()
+        tags = clean_tag(data_light['tags'][index])
+        for word in tf_idf.clean_string(title):
+            tf = tf_idf.term_frequency(word, title)
+            feature = [ tf, title_idf[word], tf*title_idf[word], 1, word2count[word]/max_word_count,
+                        find_position(word, data_with_stop_words['title'][index]) ]
+            if word in tags:
+                x.append(feature)
+                y.append([1, 0])
+            else:
+                if random.uniform(0,1) > negtive_rate:
+                    x.append(feature)
+                    y.append([0, 1])
+
+        content = tf_idf.clean_string(data_light['content'][index])
+        for word in content.split():
+            tf = tf_idf.term_frequency(word, content)
+            feature = [ tf, content_idf[word], tf*content_idf[word], 0, word2count[word]/max_word_count,
+                        find_position(word, data_with_stop_words['content'][index]) ]
+            if word in tags:
+                x.append(feature)
+                y.append([1, 0])
+            else:
+                if random.uniform(0,1) > negtive_rate:
+                    x.append(feature)
+                    y.append([0, 1])
+    return x,y
+
+from nltk.corpus import stopwords
+stopwords_set = set(stopwords.words('english'))
+
+def n_word_feature(sent, tags, idf_dict, word2count, max_word_count=float(max(word2count.values())), left=2, right=2, negtive_rate=0.9):
+    from nltk import word_tokenize
+    from tf_idf import term_frequency
+    # featrue [ tf, idf, tf*idf, isTitle, word_count, position+1 ]
+    x = []
+    y = []
+    tags = clean_tag(tags)
+    words = word_tokenize(sent)
+    tf_list = []
+    for index, word in words:
+        tf_list.append(term_frequency(word, sent)
+    for index, word in enumerate(word_tokenize(sent)):
+        temp = [0]*6
+        if word not in stopwords_set:
+            
+        if word in tags:
+            y.append([1,0])
+        else:
+            y.append([0,1])
+    
+
+    for index, title in enumerate(data['title']):
         #tags = data_light['tags'][index]).split()
         tags = clean_tag(data_light['tags'][index])
         for word in tf_idf.clean_string(title).split():
@@ -137,3 +207,4 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
                     x.append(feature)
                     y.append([0, 1])
     return x,y
+
