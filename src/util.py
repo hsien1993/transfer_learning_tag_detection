@@ -2,6 +2,7 @@ import pandas as pd
 import tf_idf
 import random
 import nltk
+import numpy as np
 from collections import Counter
 def clean_tag(tag_str):
     tag = []
@@ -36,22 +37,6 @@ def find_position(word, sentence):
     if word in nltk.word_tokenize(sentence):
         return sentence.index(word)
     return 0
-'''
-def make_cnn_feature(data, w2v_model_name, w2v_size, sent_len=20):
-    title_idf, content_idf = tf_idf.inverse_frequency(data)
-    w2v_model = gensim.models.Word2Vec.load(w2v_model_name)
-    feature = {}
-    feature['w2v'] = {}
-    feature['tfidf'] = {}
-    feature['pos'] = {}
-    feature['text'] = {}
-    # title
-    for title in data['title']:
-        a
-'''
-
-
-
 
 def make_cnn_feature(data_light, data_with_stop_word, word2vec_model_name, word_embedding_size=200, sent_size=10):
     import gensim
@@ -158,53 +143,85 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
 from nltk.corpus import stopwords
 stopwords_set = set(stopwords.words('english'))
 
-def n_word_feature(sent, tags, idf_dict, word2count, max_word_count=float(max(word2count.values())), left=2, right=2, negtive_rate=0.9):
-    from nltk import word_tokenize
+def n_word_feature(data, left=2, right=2, negtive_rate=0.9):
+    from nltk import word_tokenize, sent_tokenize
     from tf_idf import term_frequency
     # featrue [ tf, idf, tf*idf, isTitle, word_count, position+1 ]
-    x = []
-    y = []
-    tags = clean_tag(tags)
-    words = word_tokenize(sent)
-    tf_list = []
-    for index, word in words:
-        tf_list.append(term_frequency(word, sent)
-    for index, word in enumerate(word_tokenize(sent)):
-        temp = [0]*6
-        if word not in stopwords_set:
-            
-        if word in tags:
-            y.append([1,0])
-        else:
-            y.append([0,1])
-    
-
+    title_idf, content_idf = tf_idf.inverse_frequency(data, opt='smooth')
+    word2count = word_count(data)
+    max_word_count = float(max(word2count.values()))
+    feature_size = 6
+    ZERO = [0]*feature_size # 6 = feature size
+    feature = {}
+    feature['id'] = []
+    feature['x'] = []
+    feature['y'] = []
+    feature['text'] = []
     for index, title in enumerate(data['title']):
-        #tags = data_light['tags'][index]).split()
-        tags = clean_tag(data_light['tags'][index])
-        for word in tf_idf.clean_string(title).split():
-            tf = tf_idf.term_frequency(word, title)
-            feature = [ tf, title_idf[word], tf*title_idf[word], 1, word2count[word]/max_word_count,
-                        find_position(word, data_with_stop_words['title'][index]) ]
+        doc_id = data['id'][index]
+        tags = clean_tag(data['tags'][index])
+        words = word_tokenize(title)
+        temp_x = []
+        temp_y = []
+        for index1, word in enumerate(words):
+            tf = term_frequency(word, title)
+            temp_x.append( [ tf, title_idf[word], tf*title_idf[word], 
+                             1, word2count[word]/max_word_count, index1+1])
             if word in tags:
-                x.append(feature)
-                y.append([1, 0])
+                temp_y.append( [1,0] )
             else:
-                if random.uniform(0,1) > negtive_rate:
-                    x.append(feature)
-                    y.append([0, 1])
+                temp_y.append( [0,1] )
 
-        content = tf_idf.clean_string(data_light['content'][index])
-        for word in content.split():
-            tf = tf_idf.term_frequency(word, content)
-            feature = [ tf, content_idf[word], tf*content_idf[word], 0, word2count[word]/max_word_count,
-                        find_position(word, data_with_stop_words['content'][index]) ]
-            if word in tags:
-                x.append(feature)
-                y.append([1, 0])
-            else:
-                if random.uniform(0,1) > negtive_rate:
-                    x.append(feature)
-                    y.append([0, 1])
-    return x,y
+        for index1, word in enumerate(words):
+            if word not in stopwords_set:
+                x = []
+                y = []
+                for j in range(index1-left, index1+right+1):           
+                    if j >= 0 and j < len(words):
+                        x.append(temp_x[j])
+                    else:
+                        x.append(ZERO)
+                x = np.array(x).reshape( (left+1+right)*feature_size )
+                y = temp_y[index1] 
+                feature['id'].append(doc_id)
+                feature['x'].append(x)
+                feature['y'].append(y)
+                feature['text'].append(word)
+ 
+    for index, content in enumerate(data['content']):
+        doc_id = data['id'][index]
+        tags = clean_tag(data['tags'][index])
+        sentenses = sent_tokenize(content)
+        for sent in sentenses:
+            words = word_tokenize(sent)
+            temp_x = []
+            temp_y = []
+            for index1, word in enumerate(words):
+                tf = term_frequency(word, content)
+                temp_x.append( [ tf, content_idf[word], tf*content_idf[word], 
+                                 1, word2count[word]/max_word_count, index1+1])
+                if word in tags:
+                    temp_y.append( [1,0] )
+                else:
+                    temp_y.append( [0,1] )
+
+            for index1, word in enumerate(words):
+                if word not in stopwords_set:
+                    x = []
+                    y = []
+                    for j in range(index1-left, index1+right+1):           
+                        if j >= 0 and j < len(words):
+                            x.append(temp_x[j])
+                        else:
+                            x.append(ZERO)
+                    x = np.array(x).reshape( (left+1+right)*feature_size )
+                    y = temp_y[index1] 
+                    feature['id'].append(doc_id)
+                    feature['x'].append(x)
+                    feature['y'].append(y)
+                    feature['text'].append(word)
+
+    feature['x'] = np.array(feature['x']).astype('float32')
+    feature['y'] = np.array(feature['y']).astype('float32')
+    return feature
 
