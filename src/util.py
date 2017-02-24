@@ -4,6 +4,13 @@ import random
 import nltk
 import numpy as np
 from collections import Counter
+from nltk.corpus import stopwords
+
+ww = []
+for line in open('stop_word_list.txt'):
+    ww.append(line.strip())
+stopwords_set = set(ww)
+
 def clean_tag(tag_str):
     tag = []
     for t in tag_str.split():
@@ -38,73 +45,107 @@ def find_position(word, sentence):
         return sentence.index(word)
     return 0
 
-def make_cnn_feature(data_light, data_with_stop_word, word2vec_model_name, word_embedding_size=200, sent_size=10):
+all_pos_tag = ['CC','CD','DT','EX','FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP$','RB','RBR','RBS','RP','SYM','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB']
+
+def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_size=10):
     import gensim
     from nltk import word_tokenize, sent_tokenize, pos_tag
     import numpy as np
-    word2vec_model = gensim.models.Word2Vec.load(word2vec_model_name)
+    word2vec = gensim.models.Word2Vec.load(word2vec_model_name)
+    min_sent_len = 5
     feature_size = 7
-    all_pos_tag = ['CC','CD','DT','EX','FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP$','RB','RBR','RBS','RP','SYM','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB']
-    x_word_embedding = []
-    x_pos_tag_seq = []
-    x_tf_idf = []
-    y_hasTag = []
-    y_TagPosition = []
+    feature = {}
+    feature['w2v'] = []
+    feature['tf_idf'] = []
+    feature['pos'] = []
+    feature['y_has_tag'] = []
+    feature['y_tag_position'] = []
+    feature['text'] = []
+    feature['id'] = []
+
     print "counting idf..."
-    title_idf, content_idf = tf_idf.inverse_frequency(data_with_stop_word, opt='smooth')
+    title_idf, content_idf = tf_idf.inverse_frequency(data, opt='smooth')
+
     print "counting words..."
-    word2count = word_count(data_with_stop_word)
+    word2count = word_count(data)
     max_word_count = float(max(word2count.values()))
-    title_content = ['title', 'content']
-    for col in title_content:
-        print "doing "+col+"..."
-        for index, text in enumerate(data_with_stop_word[col]):
-            sentences = sent_tokenize(text)
-            for sen in sentences:
-                print "sen: " + sen
-                words = word_tokenize(sen)
-                words_light = word_tokenize(data_light[col][index])
-                tags = clean_tag(data_with_stop_word['tags'][index])
-                hasTag = False
+
+    print "extract feature from titles..."
+    for index, title in enumerate(data['title']):
+        words = word_tokenize(title)
+        if len(words) < sent_size and len(words) > min_sent_len:
+            tags = clean_tag(data['tags'][index])
+            word_embedding = np.zeros((sent_size, word_embedding_size))
+            word_tf_idf = np.zeros((sent_size, feature_size))
+            pos_tag_seq = [0] * sent_size
+            position = [0] * sent_size
+            pos_tags = pos_tag(words)
+            for i in range(0, min(sent_size,len(words))):
+                if words[i] in word2vec:
+                    word_embedding[i] = word2vec[ words[i] ]
+                tf = tf_idf.term_frequency( words[i], title)
+                isNotStopWord = 0 if words[i] in stopwords_set else 1
+                word_tf_idf[i] = [ tf, title_idf[words[i]], tf*title_idf[words[i]], 1,
+                                   isNotStopWord, word2count[words[i]]/max_word_count, i+1]
+                if pos_tags[i][1] in all_pos_tag :
+                    pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
+            hasTag = False
+            for tag in tags:
+                if tag in words:
+                    hasTag = True
+                    position[words.index(tag)] = 1
+
+            feature['w2v'].append(word_embedding)
+            feature['tf_idf'].append(word_tf_idf)
+            feature['pos'].append(pos_tag_seq)
+            feature['y_has_tag'].append([1,0]) if hasTag else feature['y_has_tag'].append([0,1])
+            feature['y_tag_position'].append(position)
+            feature['text'].append(title)
+            feature['id'].append(data['id'][index])
+
+    print "extract feature from contents..."
+    for index, content in enumerate(data['content']):
+        for sent in sent_tokenize(content):
+            words = word_tokenize(sent)
+            if len(words) < sent_size and len(words) > min_sent_len:
                 word_embedding = np.zeros((sent_size, word_embedding_size))
                 word_tf_idf = np.zeros((sent_size, feature_size))
                 pos_tag_seq = [0] * sent_size
                 position = [0] * sent_size
-                if len(words) < sent_size:
-                    pos_tags = pos_tag(words)
-                    for i in range(0, min(sent_size,len(words))):
-                        word_embedding[i] = word2vec_model[words[i]]
-                        tf = tf_idf.term_frequency(words[i], sen)
-                        word_tf_idf[i][0] = tf                                  #tf
-                        if col == 'title':                                      #idf
-                            word_tf_idf[i][1] = title_idf[words[i]]             
-                        else:
-                            word_tf_idf[i][1] = content_idf[words[i]]
-                        word_tf_idf[i][2] = tf*word_tf_idf[i][1]                #tf-idf
-                        word_tf_idf[i][3] = 1 if col == 'title' else 0          #is title
-                        word_tf_idf[i][4] = 1 if words[i] in words_light else 0  #is not stop word
-                        word_tf_idf[i][5] = word2count[words[i]]/max_word_count #word count
-                        word_tf_idf[i][6] = find_position(words[i], sen)
-                        if pos_tags[i][1] in all_pos_tag :
-                            pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
-                    x_word_embedding.append(word_embedding)
-                    x_tf_idf.append(word_tf_idf)
-                    x_pos_tag_seq.append(pos_tag_seq)
-                    print "pos: ", pos_tag_seq
-                    for tag in tags:
-                        if tag in words:
-                            hasTag = True
-                            position[words.index(tag)] = 1
-                    if hasTag:
-                        y_hasTag.append([1,0])
-                    else:
-                        y_hasTag.append([0,1])
-                    y_TagPosition.append(position)
-    return x_word_embedding, x_tf_idf, x_pos_tag_seq, y_hasTag, y_TagPosition
+                tags = clean_tag(data['tags'][index])
+                pos_tags = pos_tag(words)
+                for i in range(0, min(sent_size,len(words))):
+                    if words[i] in word2vec:
+                        word_embedding[i] = word2vec[ words[i] ]
+                    tf = tf_idf.term_frequency( words[i], content)
+                    isNotStopWord = 0 if words[i] in stopwords_set else 1
+                    word_tf_idf[i] = [ tf, content_idf[words[i]], tf*content_idf[words[i]], 1,
+                                       isNotStopWord, word2count[words[i]]/max_word_count, i+1]
+                    if pos_tags[i][1] in all_pos_tag :
+                        pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
+                hasTag = False
+                for tag in tags:
+                    if tag in words:
+                        hasTag = True
+                        position[words.index(tag)] = 1
+
+                feature['w2v'].append(word_embedding)
+                feature['tf_idf'].append(word_tf_idf)
+                feature['pos'].append(pos_tag_seq)
+                feature['y_has_tag'].append([1,0]) if hasTag else feature['y_has_tag'].append([0,1])
+                feature['y_tag_position'].append(position)
+                feature['text'].append(sent)
+                feature['id'].append(data['id'][index])
+    feature['w2v'] = np.array(feature['w2v'])
+    feature['tf_idf'] = np.array(feature['tf_idf'])
+    feature['pos'] = np.array(feature['pos'])
+    feature['y_has_tag'] = np.array(feature['y_has_tag'])
+    feature['y_tag_position'] = np.array(feature['y_tag_position'])
+
+    return feature
     
 
 def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
-
     # for example: data_light = dataframe['cooking']
     x = []
     y = []
@@ -112,7 +153,6 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
     word2count = word_count(data_light)
     max_word_count = float(max(word2count.values()))
     for index, title in enumerate(data_light['title']):
-        #tags = data_light['tags'][index]).split()
         tags = clean_tag(data_light['tags'][index])
         for word in tf_idf.clean_string(title):
             tf = tf_idf.term_frequency(word, title)
@@ -140,8 +180,6 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
                     y.append([0, 1])
     return x,y
 
-from nltk.corpus import stopwords
-stopwords_set = set(stopwords.words('english'))
 
 def n_word_feature(data, left=2, right=2, negtive_rate=0.9):
     from nltk import word_tokenize, sent_tokenize

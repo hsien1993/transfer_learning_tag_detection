@@ -86,7 +86,7 @@ model.fit(  x_train, y_train,
             nb_epoch=nb_epoch, 
             validation_data=(x_val, y_val),
             callbacks=[checkpointer] ,
-            class_weight=[1, 0.5])   
+            class_weight=[1, 0])   
 # evaluate
 title_idf, content_idf = tf_idf.inverse_frequency(data_light[val_class], opt='smooth')
 word2count = util.word_count(data_light[val_class])

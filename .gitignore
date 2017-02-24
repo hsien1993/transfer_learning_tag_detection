@@ -1,5 +1,7 @@
 *.swp
 data/*
+feature/*
+model/*
 *.pyc
 *.csv
 *.hdf5

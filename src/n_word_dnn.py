@@ -1,4 +1,7 @@
 #import keras 
+#import theano
+#theano.config.device = 'gpu1'
+#theano.config.floatX = 'float32'
 import numpy as np
 import evaluate
 import tf_idf
@@ -10,9 +13,12 @@ import pandas as pd
 import random
 import util
 import os
-nb_epoch = 10
+from nltk import word_tokenize
+
+nb_epoch = 4
 batch_size = 1280
-val_class = 'diy'
+val_class = 'crypo'
+thr = 0.12
 window_size = 2
 
 # make data
@@ -68,12 +74,22 @@ print "x_train: ", x_train.shape
 print "y_train: ", y_train.shape
 print "x_val: ", x_val.shape
 print "y_val: ", y_val.shape
+sample_weight = []
+val_sample_weight = []
 for yy in y_val:
     if yy[0] > yy[1]:
         a += 1
+        val_sample_weight.append(1)
+    else:
+        val_sample_weight.append(0.9)
 for yy in y_train:
     if yy[0] > yy[1]:
         b += 1
+        sample_weight.append(1)
+    else:
+        sample_weight.append(0.9)
+val_sample_weight = np.array(val_sample_weight)
+sample_weight = np.array(sample_weight)
 print a, y_val.shape[0] - a
 print b, y_train.shape[0] - b
 # model
@@ -91,9 +107,10 @@ checkpointer = ModelCheckpoint(filepath="n_word_dnn_weights.hdf5", save_best_onl
 model.fit(  x_train, y_train, 
             batch_size=batch_size, 
             nb_epoch=nb_epoch, 
-            validation_data=(x_val, y_val),
+            sample_weight=sample_weight,
+            validation_data=(x_val, y_val, val_sample_weight),
             callbacks=[checkpointer] ,
-            class_weight=[1, 0.1])
+            class_weight=[1, 1])
 # evaluate
 f1_score = []
 precision = []
@@ -106,16 +123,17 @@ ans = {}
 print "evaluation..."
 for index, pre in enumerate(predict):
     #if pre[0] > float(a)/y_val.shape[0]:
-    if pre[0] > 0.1:
+    if pre[0] > thr:
         if x_id[index] not in ans:
             ans[x_id[index]]=""
-        ans[x_id[index]] += x_text[index]
-        ans[x_id[index]] += ' '
+        if x_text[index] not in util.stopwords_set:
+            if not x_text[index].isdigit():
+                ans[x_id[index]] += x_text[index] + ' '
 for index, tags in enumerate(data_all[val_class]['tags']):
     doc_id = data_all[val_class]['id'][index]
     ans_str = ""
     if doc_id in ans:
-        ans_str = ans[doc_id]
+        ans_str = ' '.join(set(word_tokenize(ans[doc_id])))
     out_str = str(doc_id)+','+ans_str+'\n'
     output_file.write(out_str)
     p,r,f = evaluate.f1_score(ans_str, tags)
