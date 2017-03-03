@@ -2,6 +2,8 @@ import pandas as pd
 import tf_idf
 import random
 import nltk
+import string
+from nltk import word_tokenize, sent_tokenize, pos_tag
 import numpy as np
 from collections import Counter
 from nltk.corpus import stopwords
@@ -10,6 +12,9 @@ ww = []
 for line in open('stop_word_list.txt'):
     ww.append(line.strip())
 stopwords_set = set(ww)
+
+def clean_sent(sent_str):
+    return [ w for w in word_tokenize(str(sent_str)) if w not in string.punctuation ]
 
 def clean_tag(tag_str):
     tag = []
@@ -36,21 +41,20 @@ def load_data(data_dir, data_type):
 
 def word_count(doc):
     sentence = ' '.join([title for title in doc['title']]) + ' ' + ' '.join([content for content in doc['content']])
-    tokens = nltk.word_tokenize(sentence)
+    tokens = word_tokenize(sentence)
     word2count = Counter(tokens)
     return word2count
 
 def find_position(word, sentence):
-    if word in nltk.word_tokenize(sentence):
-        return sentence.index(word)
+    words = clean_sent(sentence)
+    if word in words:
+        return words.index(word) + 1
     return 0
 
 all_pos_tag = ['CC','CD','DT','EX','FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP$','RB','RBR','RBS','RP','SYM','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB']
 
 def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_size=10):
     import gensim
-    from nltk import word_tokenize, sent_tokenize, pos_tag
-    import numpy as np
     word2vec = gensim.models.Word2Vec.load(word2vec_model_name)
     min_sent_len = 5
     feature_size = 7
@@ -69,10 +73,10 @@ def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_si
     print "counting words..."
     word2count = word_count(data)
     max_word_count = float(max(word2count.values()))
-
+    isTitle = 1
     print "extract feature from titles..."
     for index, title in enumerate(data['title']):
-        words = word_tokenize(title)
+        words = clean_sent(title)
         if len(words) < sent_size and len(words) > min_sent_len:
             tags = clean_tag(data['tags'][index])
             word_embedding = np.zeros((sent_size, word_embedding_size))
@@ -85,7 +89,7 @@ def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_si
                     word_embedding[i] = word2vec[ words[i] ]
                 tf = tf_idf.term_frequency( words[i], title)
                 isNotStopWord = 0 if words[i] in stopwords_set else 1
-                word_tf_idf[i] = [ tf, title_idf[words[i]], tf*title_idf[words[i]], 1,
+                word_tf_idf[i] = [ tf, title_idf[words[i]], tf*title_idf[words[i]], isTitle,
                                    isNotStopWord, word2count[words[i]]/max_word_count, i+1]
                 if pos_tags[i][1] in all_pos_tag :
                     pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
@@ -104,9 +108,10 @@ def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_si
             feature['id'].append(data['id'][index])
 
     print "extract feature from contents..."
+    isTitle = 0
     for index, content in enumerate(data['content']):
         for sent in sent_tokenize(content):
-            words = word_tokenize(sent)
+            words = clean_sent(sent)
             if len(words) < sent_size and len(words) > min_sent_len:
                 word_embedding = np.zeros((sent_size, word_embedding_size))
                 word_tf_idf = np.zeros((sent_size, feature_size))
@@ -119,7 +124,7 @@ def make_cnn_feature(data, word2vec_model_name, word_embedding_size=200, sent_si
                         word_embedding[i] = word2vec[ words[i] ]
                     tf = tf_idf.term_frequency( words[i], content)
                     isNotStopWord = 0 if words[i] in stopwords_set else 1
-                    word_tf_idf[i] = [ tf, content_idf[words[i]], tf*content_idf[words[i]], 1,
+                    word_tf_idf[i] = [ tf, content_idf[words[i]], tf*content_idf[words[i]], isTitle,
                                        isNotStopWord, word2count[words[i]]/max_word_count, i+1]
                     if pos_tags[i][1] in all_pos_tag :
                         pos_tag_seq[i] = all_pos_tag.index(pos_tags[i][1]) + 1
@@ -182,7 +187,6 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
 
 
 def n_word_feature(data, left=2, right=2, negtive_rate=0.9):
-    from nltk import word_tokenize, sent_tokenize
     from tf_idf import term_frequency
     # featrue [ tf, idf, tf*idf, isTitle, word_count, position+1 ]
     title_idf, content_idf = tf_idf.inverse_frequency(data, opt='smooth')
@@ -198,27 +202,19 @@ def n_word_feature(data, left=2, right=2, negtive_rate=0.9):
     for index, title in enumerate(data['title']):
         doc_id = data['id'][index]
         tags = clean_tag(data['tags'][index])
-        words = word_tokenize(title)
-        temp_x = []
-        temp_y = []
+        words = clean_sent(title)
+        temp_x, temp_y = [], []
         for index1, word in enumerate(words):
             tf = term_frequency(word, title)
             temp_x.append( [ tf, title_idf[word], tf*title_idf[word], 
                              1, word2count[word]/max_word_count, index1+1])
-            if word in tags:
-                temp_y.append( [1,0] )
-            else:
-                temp_y.append( [0,1] )
+            temp_y.append( [1,0] ) if word in tags else temp_y.append( [0,1] )
 
         for index1, word in enumerate(words):
             if word not in stopwords_set:
-                x = []
-                y = []
+                x, y = [], []
                 for j in range(index1-left, index1+right+1):           
-                    if j >= 0 and j < len(words):
-                        x.append(temp_x[j])
-                    else:
-                        x.append(ZERO)
+                    x.append(temp_x[j]) if j >= 0 and j < len(words) else x.append(ZERO)
                 x = np.array(x).reshape( (left+1+right)*feature_size )
                 y = temp_y[index1] 
                 feature['id'].append(doc_id)
@@ -231,27 +227,19 @@ def n_word_feature(data, left=2, right=2, negtive_rate=0.9):
         tags = clean_tag(data['tags'][index])
         sentenses = sent_tokenize(content)
         for sent in sentenses:
-            words = word_tokenize(sent)
-            temp_x = []
-            temp_y = []
+            words = clean_sent(sent)
+            temp_x, temp_y = [], []
             for index1, word in enumerate(words):
                 tf = term_frequency(word, content)
                 temp_x.append( [ tf, content_idf[word], tf*content_idf[word], 
                                  1, word2count[word]/max_word_count, index1+1])
-                if word in tags:
-                    temp_y.append( [1,0] )
-                else:
-                    temp_y.append( [0,1] )
+                temp_y.append( [1,0] ) if word in tags else temp_y.append( [0,1] )
 
             for index1, word in enumerate(words):
                 if word not in stopwords_set:
-                    x = []
-                    y = []
+                    x, y = [], []
                     for j in range(index1-left, index1+right+1):           
-                        if j >= 0 and j < len(words):
-                            x.append(temp_x[j])
-                        else:
-                            x.append(ZERO)
+                        x.append(temp_x[j]) if j >= 0 and j < len(words) else x.append(ZERO)
                     x = np.array(x).reshape( (left+1+right)*feature_size )
                     y = temp_y[index1] 
                     feature['id'].append(doc_id)

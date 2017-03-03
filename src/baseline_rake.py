@@ -1,10 +1,11 @@
 import RAKE
 import pandas as pd
 import evaluate 
+import numpy as np
 data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
 with_out_stopwords = '_with_stop_words.csv'
 isBigram = 0
-title_only = 0
+title_only = 1
 dataframes = {
     "cooking": pd.read_csv(data_dir + "cooking" + with_out_stopwords),
     "crypto": pd.read_csv(data_dir + "crypto" + with_out_stopwords),
@@ -15,6 +16,7 @@ dataframes = {
 }
 
 rake_object = RAKE.Rake('/home/hsienchin/python-rake/stoplists/SmartStoplist.txt')
+print 'class, p, r, f1'
 for df in dataframes:
     ans = []
     precision = []
@@ -43,8 +45,4 @@ for df in dataframes:
         precision.append(p)
         recall.append(r)
         f1.append(f)
-    print '------------------------------------------------'
-    print df
-    print 'precision: ', sum(precision)/float(len(precision))
-    print 'recall: ', sum(recall)/float(len(recall))
-    print 'f1: ', sum(f1)/float(len(f1))
+    print df,',', np.mean(precision),',', np.mean(recall),',', np.mean(f1)

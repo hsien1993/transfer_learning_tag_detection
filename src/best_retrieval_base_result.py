@@ -2,6 +2,7 @@ import evaluate
 import util
 import numpy as np
 data_light = util.load_data('/home/hsienchin/transfer_learning_tag_detection/data/','_light.csv')
+print 'class, precision, recall, f1'
 for data_class in data_light:
     precision = []
     recall = []
@@ -15,4 +16,4 @@ for data_class in data_light:
         precision.append(p)
         recall.append(r)
         f1_score.append(f)
-    print data_class, 'p: ', np.mean(precision), 'r: ', np.mean(recall), 'f: ', np.mean(f1_score)
+    print data_class, ',', np.mean(precision), ',', np.mean(recall), ',', np.mean(f1_score)

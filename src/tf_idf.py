@@ -2,19 +2,18 @@ import pandas as pd
 import math
 import re
 import nltk
-def clean_string(s):
-    s = str(s)
-    if len(s) > 0:
-        return nltk.word_tokenize(s)
-#        return re.sub('\.|\!|\?',' ',s).split()
-    return s
+import util
+#def clean_string(s):
+#    s = str(s)
+#    if len(s) > 0:
+#        return nltk.word_tokenize(s)
+#    return s
 
 def term_frequency(term, doc, opt='log'):
-    doc = clean_string(doc)
+    doc = util.clean_sent(doc)
     if opt == 'simple':
-        if term in doc:
-            return 1.0
-        return 0.0
+        return 1.0 if term in doc else 0.0
+
     elif opt == 'log':
         t = 0
         for w in doc:
@@ -40,13 +39,13 @@ def inverse_frequency(whole_doc, opt='smooth'):
     for index, title in enumerate(whole_doc['title']):
         all_doc_num += 1
         doc_id = whole_doc['id'][index]
-        for word in nltk.word_tokenize(title):
+        for word in util.clean_sent(title):
             if word not in title_word:
                 title_word[word] = []
             if doc_id not in title_word[word]:
                 title_word[word].append(doc_id)
  
-        for word in nltk.word_tokenize(whole_doc['content'][index]):
+        for word in util.clean_sent(whole_doc['content'][index]):
             if word not in content_word:
                 content_word[word] = []
             if doc_id not in content_word[word]:
@@ -79,7 +78,6 @@ if __name__ == '__main__':
     data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
     data_type = '_light.csv'
     title_only = True
-    top_n = 5
     dataframes = {
         "cooking": pd.read_csv(data_dir + "cooking" + data_type),
         "crypto": pd.read_csv(data_dir + "crypto" + data_type ),
@@ -88,28 +86,34 @@ if __name__ == '__main__':
         "travel": pd.read_csv(data_dir + "travel" + data_type),
         "diy": pd.read_csv(data_dir + "diy" + data_type),
     }
-    print "data_type, top_n, precision, recall, f1_score"
-    for top_n in range(1,10):
-        for data_class in dataframes:
-            title_idf, content_idf = inverse_frequency(dataframes[data_class], opt='smooth')
-            ans = []
-            f1 = []
-            precision = []
-            recall = []
+    print "class, top_n, precision, recall, f1_score"
+    #content_weight = 0.8
+    for data_class in dataframes:
+        title_idf, content_idf = inverse_frequency(dataframes[data_class], opt='smooth')
+        for top_n in range(1,20):
+            ans, f1, precision, recall = [],[],[],[]
             for index, title in enumerate(dataframes[data_class]['title']):
                 predict_tags = ""
-                if title_only:
-                    candidate = {}
-                    for word in title.split():
-                        # tf-idf scores
-                        candidate[word] = title_idf[word]*term_frequency(word, title, opt='log')
-                    predict_tags = heapq.nlargest(top_n, candidate)
-                    p,r,f = evaluate.f1_score(" ".join(predict_tags), dataframes[data_class]['tags'][index])
-                    f1.append(f)
-                    precision.append(p)
-                    recall.append(r)  
-            #print '-------------------------------------'
-            print data_class, ',', top_n,',', numpy.mean(precision),',', numpy.mean(recall),',', numpy.mean(f1)
-            #print 'precision: ', numpy.mean(precision)
-            #print 'recall: ', numpy.mean(recall)
-            #print 'f1_score: ', numpy.mean(f1)
+                content = dataframes[data_class]['content'][index]
+                candidate = {}
+                for word in util.clean_sent(title):
+                    score = title_idf[word]*term_frequency(word, title)
+                    if word in candidate:
+                        if candidate[word] < score:
+                            candidate[word] = score
+                    else:
+                        candidate[word] = score
+                #for word in util.clean_sent(content):
+                #    score = content_idf[word]*term_frequency(word, content)*content_weight
+                #    if word in candidate:
+                #        if candidate[word] < score:
+                #            candidate[word] = score
+                #    else:
+                #        candidate[word] = score
+
+                predict_tags = heapq.nlargest(top_n, candidate)
+                p,r,f = evaluate.f1_score(" ".join(predict_tags), dataframes[data_class]['tags'][index])
+                f1.append(f)
+                precision.append(p)
+                recall.append(r)  
+            print  data_class, ',', top_n,',', numpy.mean(precision),',', numpy.mean(recall),',', numpy.mean(f1)

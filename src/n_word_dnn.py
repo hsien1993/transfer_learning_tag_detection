@@ -17,7 +17,7 @@ from nltk import word_tokenize
 
 nb_epoch = 4
 batch_size = 1280
-val_class = 'crypo'
+val_class = 'crypto'
 thr = 0.12
 window_size = 2
 
