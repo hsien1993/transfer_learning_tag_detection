@@ -102,7 +102,7 @@ if __name__ == '__main__':
                     candidate = {}
                     for word in title.split():
                         # tf-idf scores
-                        candidate[word] = title_idf[word]*term_frequency(word, title, opt='aug')
+                        candidate[word] = title_idf[word]*term_frequency(word, title, opt='log')
                     predict_tags = heapq.nlargest(top_n, candidate)
                     p,r,f = evaluate.f1_score(" ".join(predict_tags), dataframes[data_class]['tags'][index])
                     f1.append(f)
