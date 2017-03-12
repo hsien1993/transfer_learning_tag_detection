@@ -2,6 +2,7 @@ import nltk
 import gensim,logging
 import util
 import Cython
+model_dir = '../model/'
 data = util.load_data(data_dir='../data/', data_type='_with_stop_words_2.csv')
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 print "appending sentence..."
@@ -13,8 +14,9 @@ for data_class in data:
         for sentence in nltk.sent_tokenize(content):
             raw_sentences.append(sentence)
 print "tokenize..."
-sentences = map(nltk.word_tokenize, raw_sentences)
+#sentences = map(nltk.word_tokenize, raw_sentences)
+sentences = map(util.clean_sent, raw_sentences)
 print "training model..."
 model = gensim.models.Word2Vec(sentences, min_count=1, size=200, workers=4)
 print "save model..."
-model.save('my_word2vec_2.model')
+model.save(model_dir + 'my_word2vec.model')

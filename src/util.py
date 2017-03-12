@@ -9,7 +9,7 @@ from collections import Counter
 from nltk.corpus import stopwords
 
 ww = []
-for line in open('stop_word_list.txt'):
+for line in open('/home/hsienchin/transfer_learning_tag_detection/src/stop_word_list.txt'):
     ww.append(line.strip())
 stopwords_set = set(ww)
 
