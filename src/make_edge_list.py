@@ -83,6 +83,9 @@ for topic in content_sent:
     content_g[topic] = edge_list(content_sent[topic], vocab, isWeight=True)
 
 feat_dir = '../feature/'
+all_feat_type = 'all_title_edge_list'
+all_fname = feat_dir + all_feat_type
+f2 = open(all_fname, 'w')
 feat_type = '_title_edge_list'
 for topic in title_g:
     fname = feat_dir + topic + feat_type
@@ -90,8 +93,13 @@ for topic in title_g:
     for pair in title_g[topic]:
         s = str(pair[0]) + ' ' + str(pair[1]) + ' ' + str(title_g[topic][pair]) + '\n'
         f.write(s)
+        f2.write(s)
     f.close()
+f2.close()
 
+all_feat_type = 'all_content_edge_list'
+all_fname = feat_dir + all_feat_type
+f2 = open(all_fname, 'w')
 feat_type = '_content_edge_list'
 for topic in content_g:
     fname = feat_dir + topic + feat_type
@@ -99,5 +107,6 @@ for topic in content_g:
     for pair in content_g[topic]:
         s = str(pair[0]) + ' ' + str(pair[1]) + ' ' + str(content_g[topic][pair]) + '\n'
         f.write(s)
+        f2.write(s)
     f.close()
-
+f2.close()

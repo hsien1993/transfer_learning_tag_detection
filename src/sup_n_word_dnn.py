@@ -14,10 +14,10 @@ import random
 import util
 import os
 from nltk import word_tokenize
-
-nb_epoch = 4
-batch_size = 1280
-val_class = 'crypto'
+rate = 0.5
+nb_epoch = 25
+batch_size = 128
+val_class = 'travel'
 thr = 0.12
 window_size = 2
 
@@ -39,34 +39,39 @@ print "*****************************"
 
 data = {}
 for data_class in data_all:
-    file_name = '../feature/'+data_class+'_n_word.npz.npy'
-    print file_name
-    if os.path.isfile(file_name):
-        print "Exist "+file_name+" file!"
-        feature = np.load(file_name).item()
-    else:
-        print "make feature"
-        feature = util.n_word_feature(data_all[data_class])
-        np.save(file_name, feature)
-        print "Complete " + data_class + " feature making..."
-    data[data_class] = feature
-x_train = np.array([[]])
-y_train = np.array([[]])
+    if data_class == val_class:
+        file_name = '../feature/'+data_class+'_n_word.npz.npy'
+        if os.path.isfile(file_name):
+            print "Exist "+file_name+" file!"
+            feature = np.load(file_name).item()
+        else:
+            feature = util.n_word_feature(data_all[data_class])
+            np.save(file_name, feature)
+            print "Complete " + data_class + " feature making..."
+        data[data_class] = feature
 a = 0
 b = 0
-for data_class in data:
-    if data_class == val_class:
-        x_text = data[data_class]['text']
-        x_id = data[data_class]['id']
-        x_val = data[data_class]['x']
-        y_val = data[data_class]['y']
+
+whole_data = data[val_class]
+all_id = set(whole_data['id'])
+l=len(all_id)
+print l*rate
+val_id = random.sample(all_id, int(l*rate))
+x_val = []
+y_val = []
+x_text = []
+x_id = []
+x_train = []
+y_train = []
+for i,t in enumerate(whole_data['id']):
+    if t in val_id:
+        x_val.append(whole_data['x'][i])
+        y_val.append(whole_data['y'][i])
+        x_text.append(whole_data['text'][i])
+        x_id.append(whole_data['id'][i])
     else:
-        if x_train.shape[1] == 0:
-            x_train = data[data_class]['x']
-            y_train = data[data_class]['y']
-        else:
-            x_train = np.append(data[data_class]['x'],x_train,axis=0)
-            y_train = np.append(data[data_class]['y'],y_train,axis=0)
+        x_train.append(whole_data['x'][i])
+        y_train.append(whole_data['y'][i])
 
 x_train = np.array(x_train).astype('float32')
 y_train = np.array(y_train).astype('float32')
@@ -118,7 +123,7 @@ f1_score = []
 precision = []
 recall = []
 model.load_weights("n_word_dnn_weights.hdf5")
-output_file = open('output.csv','w')
+output_file = open('a_n_word_output.csv','w')
 predict = model.predict(x_val)
 text = ""
 ans = {}

@@ -1,15 +1,17 @@
 import util
 import evaluate
 import numpy as np
+import keras
 from keras.models import Model
-from keras.layers import Dense, Dropout, Activation, Input, merge, Reshape
+from keras.layers import Dense, Dropout, Activation, Input, Reshape, merge
 from keras.layers import Embedding
 from keras.layers import Convolution1D, GlobalMaxPooling1D, MaxPooling1D, Flatten
 from keras.layers import Convolution2D
 import os
+import random
 from nltk import word_tokenize
-
-choose_th = 0.008
+rate = 0.5
+choose_th = 0.005
 acc_th = 0.1
 
 val_class = 'travel'
@@ -29,10 +31,12 @@ word_embed_conv = Convolution2D(nb_filter=64, nb_row=1, nb_col=200, border_mode=
 tf_idf_conv = Convolution2D(nb_filter=64, nb_row=1, nb_col=feature_size, border_mode='valid', )(tf_idf_input)
 pos_conv = Convolution2D(nb_filter=64, nb_row=1, nb_col=10, border_mode='valid')(pos_embed)
 
-x = merge([word_embed_conv, tf_idf_conv, pos_conv], mode='concat')
+x = merge([word_embed_conv, tf_idf_conv, pos_conv],mode='sum')
+#x = Add([word_embed_conv, tf_idf_conv, pos_conv])
 #x = merge([word_embed_conv, tf_idf_conv], mode='concat')
 x = Flatten()(x)
-fc = Dense(output_dim=20, activation='relu')(x)
+fc = Dense(output_dim=64, activation='relu')(x)
+fc = Dense(output_dim=20, activation='relu')(fc)
 has_tag = Dense(output_dim=2, activation='softmax', name='has_tag')(fc)
 tag_position = Dense(output_dim=max_len, activation='softmax', name='tag_position')(fc)
 
@@ -50,61 +54,67 @@ feature_dir = home_dir + 'feature/'
 
 document = util.load_data(data_dir, '_with_stop_words_3.csv')
 
-x_train_w2v = np.array([[]])
-x_train_tf_idf = np.array([[]])
-x_train_pos = np.array([[]])
-y_train_has_tag = np.array([[]])
-y_train_tag_position = np.array([[]])
+x_train_w2v = []
+x_train_tf_idf = []
+x_train_pos = []
+y_train_has_tag = []
+y_train_tag_position = []
 
 x_val_w2v = []
 x_val_tf_idf = []
 x_val_pos = []
+x_val_id = []
+x_val_text = []
 y_val_has_tag = []
 y_val_tag_position = []
 
 #feature = [word_embedding] + [tf, idf, tf*idf, isTitle, isStopWord, word_count, word_position] + POS_tagging
 data = {}
-for data_class in document:
-    if os.path.isfile(feature_dir+data_class+'cnn_feature.npy'):
-        print "reading exist feature file..."
-        data[data_class] = np.load( feature_dir+data_class+'cnn_feature.npy' ).item()
-    else:
-        print "extracting "+data_class+" feature..."
-        data[data_class] = util.make_cnn_feature( document[data_class], 
-                                                  word_embedding_size=word_embedding_size, 
-                                                  sent_size=max_len, 
-                                                  word2vec_model_name=w2v_model_name)
-        np.save( feature_dir+data_class+'cnn_feature.npy', data[data_class])
+data_class = val_class
+if os.path.isfile(feature_dir+data_class+'cnn_feature.npy'):
+    print "reading exist feature file..."
+    data[data_class] = np.load( feature_dir+data_class+'cnn_feature.npy' ).item()
+else:
+    print "extracting "+data_class+" feature..."
+    data[data_class] = util.make_cnn_feature( document[data_class], 
+                                              word_embedding_size=word_embedding_size, 
+                                              sent_size=max_len, 
+                                              word2vec_model_name=w2v_model_name)
+    np.save( feature_dir+data_class+'cnn_feature.npy', data[data_class])
 
-for data_class in data:
-    if data_class == val_class:
-        x_val_w2v = data[data_class]['w2v']
-        x_val_tf_idf = data[data_class]['tf_idf']
-        x_val_pos = data[data_class]['pos']
-        y_val_has_tag = data[data_class]['y_has_tag']
-        y_val_tag_position = data[data_class]['y_tag_position']
+whole_data = data[val_class]
+all_id = set(whole_data['id'])
+l = len(all_id)
+val_id = random.sample(all_id, int(l*rate))
+
+for i,t in enumerate(whole_data['id']):
+    if t in val_id:
+        x_val_id.append(whole_data['id'][i])
+        x_val_text.append(whole_data['text'][i])
+        x_val_w2v.append(whole_data['w2v'][i])
+        x_val_tf_idf.append(whole_data['tf_idf'][i])
+        x_val_pos.append(whole_data['pos'][i])
+        y_val_has_tag.append(whole_data['y_has_tag'][i])
+        y_val_tag_position.append(whole_data['y_tag_position'][i])
     else:
-        if x_train_w2v.shape[1] == 0:
-            x_train_w2v = data[data_class]['w2v']
-            x_train_tf_idf = data[data_class]['tf_idf']
-            x_train_pos = data[data_class]['pos'] 
-            y_train_has_tag = data[data_class]['y_has_tag']
-            y_train_tag_position = data[data_class]['y_tag_position']
-        else:
-            x_train_w2v = np.append(data[data_class]['w2v'],x_train_w2v,axis=0)
-            x_train_tf_idf = np.append(data[data_class]['tf_idf'],x_train_tf_idf,axis=0)
-            x_train_pos = np.append(data[data_class]['pos'],x_train_pos,axis=0)
-            y_train_has_tag = np.append(data[data_class]['y_has_tag'],y_train_has_tag,axis=0)
-            y_train_tag_position = np.append(data[data_class]['y_tag_position'],y_train_tag_position,axis=0)
-print x_train_w2v.shape
-x_train_w2v = np.array(x_train_w2v).astype('float32').reshape(x_train_w2v.shape[0],1,max_len,word_embedding_size)
-x_train_tf_idf = np.array(x_train_tf_idf).astype('float32').reshape(x_train_tf_idf.shape[0],1,max_len,7)
+        x_train_w2v.append(whole_data['w2v'][i])
+        x_train_tf_idf.append(whole_data['tf_idf'][i])
+        x_train_pos.append(whole_data['pos'][i])
+        y_train_has_tag.append(whole_data['y_has_tag'][i])
+        y_train_tag_position.append(whole_data['y_tag_position'][i])
+print len(x_train_w2v)        
+x_train_w2v = np.array(x_train_w2v).astype('float32')
+x_train_w2v = x_train_w2v.reshape(x_train_w2v.shape[0],1,max_len,word_embedding_size)
+x_train_tf_idf = np.array(x_train_tf_idf).astype('float32')
+x_train_tf_idf = x_train_tf_idf.reshape(x_train_tf_idf.shape[0],1,max_len,7)
 x_train_pos = np.array(x_train_pos).astype('float32')
 y_train_has_tag = np.array(y_train_has_tag).astype('float32')
 y_train_tag_position = np.array(y_train_tag_position).astype('float32')
 
-x_val_w2v = np.array(x_val_w2v).astype('float32').reshape(x_val_w2v.shape[0],1,max_len,word_embedding_size)
-x_val_tf_idf = np.array(x_val_tf_idf).astype('float32').reshape(x_val_tf_idf.shape[0],1,max_len,7)
+x_val_w2v = np.array(x_val_w2v).astype('float32')
+x_val_w2v = x_val_w2v.reshape(x_val_w2v.shape[0],1,max_len,word_embedding_size)
+x_val_tf_idf = np.array(x_val_tf_idf).astype('float32')
+x_val_tf_idf = x_val_tf_idf.reshape(x_val_tf_idf.shape[0],1,max_len,7)
 x_val_pos = np.array(x_val_pos).astype('float32')
 y_val_has_tag = np.array(y_val_has_tag).astype('float32')
 y_val_tag_position = np.array(y_val_tag_position).astype('float32')
@@ -118,15 +128,15 @@ model.fit( {'word_embed':x_train_w2v, 'tf_idf':x_train_tf_idf, 'pos':x_train_pos
            {'has_tag':y_train_has_tag, 'tag_position':y_train_tag_position},
            validation_data=( {'word_embed':x_val_w2v, 'tf_idf':x_val_tf_idf, 'pos':x_val_pos},
                              {'has_tag':y_val_has_tag, 'tag_position':y_val_tag_position}),
-           nb_epoch=5,
-           batch_size=50)
+           nb_epoch=100,
+           batch_size=300)
 
 # evaluate
 ans = {}
-for index, doc_id in enumerate(data[val_class]['id']):
+for index, doc_id in enumerate(x_val_id):
     predict = model.predict([np.array([x_val_w2v[index]]),np.array([x_val_tf_idf[index]]),np.array([x_val_pos[index]])])
     if predict[0][0][0] > choose_th:
-        words = word_tokenize(data[val_class]['text'][index])
+        words = word_tokenize(x_val_text[index])
         #for word_position in range(len(predict[1][0])):
         for word_position in range(len(words)):
             if predict[1][0][word_position] > acc_th:
