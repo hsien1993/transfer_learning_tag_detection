@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import argparse
 def f1_score(ans, ref, isBigram=False):
     prediction = ans.split()
     reference = []
@@ -31,4 +32,24 @@ dataframes = {
     "diy": pd.read_csv(data_dir + "diy" + with_out_stopwords),
 }
 '''
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('ans_file', help='ans file, include id,prediction,reference')
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    import numpy
+    args = parse_args()
+    p = []
+    r = []
+    f1 = []
+    with open(args.ans_file) as f:
+        for line in f:
+            line = line.strip()
+            index, prediction, reference = line.split(',')
+            _p, _r, _f1 = f1_score(prediction, reference)
+            p.append(_p)
+            r.append(_r)
+            f1.append(_f1)
+    print numpy.mean(p), numpy.mean(r), numpy.mean(f1)
 

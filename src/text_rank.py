@@ -60,8 +60,8 @@ def textRank(graph,d=0.85,kw_num=3,with_weight=False):
     else:
         kw = [word for word,weight in sorted(TR.iteritems(),key=lambda (k,v):(v,k),reverse=True)[:kw_num]]
     return kw
-s = 'one definition questions also one interests personally find guide take safely amazon jungle love explore amazon would attempt without guide least first time prefer guide going ambush anything p edit want go anywhere touristy start end points open trip take places likely see travellers tourists definitely require good guide order safe'
-#s = "this was one of our definition questions  but also one that interests me personally  how can i find a guide that will take me safely through the amazon jungle? i'd love to explore the amazon but would not attempt it without a guide  at least not the first time  and i'd prefer a guide that wasn't going to ambush me or anything  predit  i don't want to go anywhere  touristy    start and end points are open  but the trip should take me places where i am not likely to see other travellers   tourists and where i will definitely require a good guide in order to be safe"
-data = coocurance(s)
-kw = textRank(data)
-print kw
+if __name__ == '__main__':
+    s = 'one definition questions also one interests personally find guide take safely amazon jungle love explore amazon would attempt without guide least first time prefer guide going ambush anything p edit want go anywhere touristy start end points open trip take places likely see travellers tourists definitely require good guide order safe'
+    data = coocurance(s)
+    kw = textRank(data)
+    print kw
