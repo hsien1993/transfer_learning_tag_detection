@@ -36,16 +36,16 @@ y_val = np.array(y_val).astype('float32')
 print x_train[0].shape
 # model
 sent_in = Input(shape=(x_train[0].shape))
-x = LSTM(128, return_sequences=True)(sent_in)
+x = LSTM(500, return_sequences=True)(sent_in)
 x = Dense(2, activation='softmax')(x)
 #x = LSTM(2, activation='softmax', return_sequences=True)(x)
 my_model = Model(input=sent_in, output=x)
 my_model.summary()
-RMSprop = optimizers.RMSprop(clipnorm=1)
+RMSprop = optimizers.RMSprop(clipnorm=1, lr=0.00005)
 my_model.compile(loss='categorical_crossentropy',optimizer=RMSprop,metrics=['accuracy'])
 my_model.fit(x_train,y_train,
              batch_size=128,
-             nb_epoch=10,
+             nb_epoch=20,
              validation_data=(x_val,y_val))
 
 result = my_model.predict(x_val)
@@ -57,7 +57,7 @@ for index, doc_id in enumerate(x_id):
     words = clean_sent(x_text[index])
     word_pos = pos_tag(words)
     for position,word in enumerate(words):
-        if result[index][position][1] > 0.0001 and word_pos[position][1] in choose_pos:
+        if result[index][position][1] > 0.005 and word_pos[position][1] in choose_pos:
             temp += word + ' '
     if doc_id not in ans:
         ans[doc_id] = ""
