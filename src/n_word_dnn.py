@@ -14,11 +14,12 @@ import random
 import util
 import os
 from nltk import word_tokenize
+import sys
+all_class = ['biology','cooking','travel','robotics','crypto','diy']
 
 nb_epoch = 4
 batch_size = 1280
-val_class = 'crypto'
-thr = 0.12
+val_class = all_class[ int(sys.argv[1]) ]
 window_size = 2
 
 # make data
@@ -83,13 +84,13 @@ for yy in y_val:
         a += 1
         val_sample_weight.append(1)
     else:
-        val_sample_weight.append(0.9)
+        val_sample_weight.append(1)
 for yy in y_train:
     if yy[0] > yy[1]:
         b += 1
         sample_weight.append(1)
     else:
-        sample_weight.append(0.9)
+        sample_weight.append(1)
 val_sample_weight = np.array(val_sample_weight)
 sample_weight = np.array(sample_weight)
 print a, y_val.shape[0] - a
@@ -105,42 +106,51 @@ model = Model(input=inputs, output=outputs)
 model.compile(optimizer='adam',
               loss='binary_crossentropy',
               metrics=['accuracy'])
-checkpointer = ModelCheckpoint(filepath="n_word_dnn_weights.hdf5", save_best_only=True, monitor='val_acc', mode='max' )
+#checkpointer = ModelCheckpoint(filepath="n_word_dnn_weights.hdf5", save_best_only=True, monitor='val_acc', mode='max' )
 model.fit(  x_train, y_train, 
             batch_size=batch_size, 
             nb_epoch=nb_epoch, 
             sample_weight=sample_weight,
             validation_data=(x_val, y_val, val_sample_weight),
-            callbacks=[checkpointer] ,
+            #callbacks=[checkpointer] ,
             class_weight=[1, 1])
 # evaluate
-f1_score = []
-precision = []
-recall = []
-model.load_weights("n_word_dnn_weights.hdf5")
-output_file = open('output.csv','w')
+#model.load_weights("n_word_dnn_weights.hdf5")
+#output_file = open('output.csv','w')
+result_file = open('../result/'+val_class+'_n_dnn.csv','w')
 predict = model.predict(x_val)
+print predict[0]
 text = ""
-ans = {}
 print "evaluation..."
-for index, pre in enumerate(predict):
-    #if pre[0] > float(a)/y_val.shape[0]:
-    if pre[0] > thr:
-        if x_id[index] not in ans:
-            ans[x_id[index]]=""
-        if x_text[index] not in util.stopwords_set:
-            if not x_text[index].isdigit():
-                ans[x_id[index]] += x_text[index] + ' '
-for index, tags in enumerate(data_all[val_class]['tags']):
-    doc_id = data_all[val_class]['id'][index]
-    ans_str = ""
-    if doc_id in ans:
-        ans_str = ' '.join(set(word_tokenize(ans[doc_id])))
-    out_str = str(doc_id)+','+ans_str+'\n'
-    output_file.write(out_str)
-    p,r,f = evaluate.f1_score(ans_str, tags)
-    f1_score.append(f)
-    precision.append(p)
-    recall.append(r)
+all_th = [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.08]
+for thr in all_th:
+    ans = {}
+    f1_score = []
+    precision = []
+    recall = []
+    for index, pre in enumerate(predict):
+        #if pre[0] > float(a)/y_val.shape[0]:
+        if pre[0] > thr:
+            if x_id[index] not in ans:
+                ans[x_id[index]]=""
+            #if x_text[index] not in util.stopwords_set:
+            #    if not x_text[index].isdigit():
+            #        ans[x_id[index]] += x_text[index] + ' '
+            ans[x_id[index]] += x_text[index] + ' '
+    for index, tags in enumerate(data_all[val_class]['tags']):
+        doc_id = data_all[val_class]['id'][index]
+        ans_str = ""
+        if doc_id in ans:
+            ans_str = ' '.join(set(word_tokenize(ans[doc_id])))
+            #out_str = str(doc_id)+','+ans_str+','+tags
+            #print out_str
+            #output_file.write(out_str)
+            p,r,f = evaluate.f1_score(ans_str, tags)
+            f1_score.append(f)
+            precision.append(p)
+            recall.append(r)
     
-print np.mean(precision), np.mean(recall), np.mean(f1_score)
+    l=str(thr)+','+str(np.mean(precision))+','+str(np.mean(recall))+','+ str(np.mean(f1_score))
+    result_file.write(l+'\n')
+    print l
+result_file.close()    

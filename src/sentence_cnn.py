@@ -8,11 +8,11 @@ from keras.layers import Convolution1D, GlobalMaxPooling1D, MaxPooling1D, Flatte
 from keras.layers import Convolution2D
 import os
 from nltk import word_tokenize
-
+import sys
 choose_th = 0.008
 acc_th = 0.1
-
-val_class = 'travel'
+all_class = ['biology','cooking','travel','robotics','crypto','diy']
+val_class = all_class[ int(sys.argv[1]) ]
 word_embedding_size = 200
 max_len = 20
 w2v_model_name = 'my_word2vec_2.model'
@@ -38,7 +38,7 @@ tag_position = Dense(output_dim=max_len, activation='softmax', name='tag_positio
 
 model = Model(input=[word_embed_input, tf_idf_input, pos_input], output=[has_tag, tag_position])
 #model = Model(input=[word_embed_input, tf_idf_input], output=[has_tag, tag_position])
-#model.summary()
+model.summary()
 model.compile(optimizer='adam', loss='binary_crossentropy',
               metrics=['accuracy'],
               loss_weights=[1., 1.])
@@ -122,38 +122,45 @@ model.fit( {'word_embed':x_train_w2v, 'tf_idf':x_train_tf_idf, 'pos':x_train_pos
            batch_size=50)
 
 # evaluate
-ans = {}
-for index, doc_id in enumerate(data[val_class]['id']):
-    predict = model.predict([np.array([x_val_w2v[index]]),np.array([x_val_tf_idf[index]]),np.array([x_val_pos[index]])])
-    if predict[0][0][0] > choose_th:
-        words = word_tokenize(data[val_class]['text'][index])
-        #for word_position in range(len(predict[1][0])):
-        for word_position in range(len(words)):
-            if predict[1][0][word_position] > acc_th:
-                if doc_id not in ans:
-                    ans[doc_id] = ""
-                if word_position < len(words):
-                    ans_word = words[word_position]
-                if ans_word not in util.stopwords_set:
-                    ans[doc_id] += ans_word + ' '
+result_file = open('../result/' + val_class + '_cnn.csv','w')
+all_th = [0.3, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
+for acc_th in all_th:
+    ans = {}
+    for index, doc_id in enumerate(data[val_class]['id']):
+        predict = model.predict([np.array([x_val_w2v[index]]),np.array([x_val_tf_idf[index]]),np.array([x_val_pos[index]])])
+        if predict[0][0][0] > choose_th:
+            words = word_tokenize(data[val_class]['text'][index])
+            #for word_position in range(len(predict[1][0])):
+            for word_position in range(len(words)):
+                if predict[1][0][word_position] > acc_th:
+                    if doc_id not in ans:
+                        ans[doc_id] = ""
+                    if word_position < len(words):
+                        ans_word = words[word_position]
+                    if ans_word not in util.stopwords_set:
+                        ans[doc_id] += ans_word + ' '
 
-precision = []
-recall =[]
-f1_score = []
-for index, tags in enumerate(document[val_class]['tags']):
-    doc_id = document[val_class]['id'][index]
-    pre_tag = ""
-    if doc_id in ans:
-        pre_tag = ans[doc_id]
-    p,r,f = evaluate.f1_score(pre_tag, tags)
-    precision.append(p)
-    recall.append(r)
-    f1_score.append(f)
-print np.mean(precision), np.mean(recall), np.mean(f1_score)
-
+    precision = []
+    recall =[]
+    f1_score = []
+    for index, tags in enumerate(document[val_class]['tags']):
+        doc_id = document[val_class]['id'][index]
+        pre_tag = ""
+        if doc_id in ans:
+            pre_tag = ans[doc_id]
+            p,r,f = evaluate.f1_score(pre_tag, tags)
+            precision.append(p)
+            recall.append(r)
+            f1_score.append(f)
+    l=str(np.mean(precision))+','+ str(np.mean(recall))+','+str( np.mean(f1_score))
+    print l
+    result_file.write(l+'\n')
+result_file.close()
+'''
 outfile = open('cnn_result.csv','w')
 for doc_id in ans:
     line = str(doc_id) + ',' + ans[doc_id] + '\n'
     outfile.write(line)
 
 outfile.close()
+'''

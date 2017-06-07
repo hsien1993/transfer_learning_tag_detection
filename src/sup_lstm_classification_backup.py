@@ -8,7 +8,8 @@ from nltk import pos_tag
 from evaluate import f1_score
 import numpy as np
 import random
-
+import sys
+nb_epoch = int(sys.argv[1])
 def make_tag(all_tag, tags):
     temp = [0]*len(all_tag)
     for tag in tags:
@@ -22,10 +23,10 @@ document = load_data(data_dir, '_with_stop_words_3.csv')
 
 # padding zero on the front
 max_len = 20
-val_class = 'travel'
-rate = 0.5
+val_class = 'diy'
+rate = 0.8
 #num = 1~1000
-data = np.load('../feature/travelcnn_feature.npy').item()
+data = np.load('../feature/'+val_class+'cnn_feature.npy').item()
 whole_data = data
 all_id = set(whole_data['id'])
 l = len(all_id)
@@ -48,7 +49,6 @@ for index,tag in enumerate(document[val_class]['tags']):
 
 all_tag = list(set(all_tag))
 
-
 for i,t in enumerate(whole_data['id']):
     tags = id2tag[t]
     if t in val_id:
@@ -69,32 +69,50 @@ print x_train.shape
 print y_train.shape
 # model
 sent_in = Input(shape=(x_train[0].shape))
-x = LSTM(500, return_sequences=True, activation='elu')(sent_in)
-x = LSTM(500, return_sequences=False, activation='tanh')(sent_in)
+x = LSTM(50, return_sequences=True, activation='elu')(sent_in)
+x = LSTM(50, return_sequences=False, activation='tanh')(x)
 x = Dense(len(all_tag), activation='softmax')(x)
 #x = LSTM(2, activation='softmax', return_sequences=True)(x)
 my_model = Model(input=sent_in, output=x)
 my_model.summary()
 RMSprop = optimizers.RMSprop(clipnorm=1, lr=0.005)
-my_model.compile(loss='categorical_crossentropy',optimizer=optimizers.Adam(),metrics=['accuracy'])
-#my_model.compile(loss='mean_squared_error',optimizer=optimizers.Adam(),metrics=['accuracy'])
+#my_model.compile(loss='categorical_crossentropy',optimizer=optimizers.Adam(),metrics=['accuracy'])
+my_model.compile(loss='mean_squared_error',optimizer=optimizers.Adam(),metrics=['accuracy'])
 my_model.fit(x_train,y_train,
              batch_size=128,
-             nb_epoch=15,
+             nb_epoch=nb_epoch,
              validation_data=(x_val,y_val))
 
 result = my_model.predict(x_val)
 print result[0]
 
 ans = {}
-for index, doc_id in enumerate(x_id):
-    temp = ""
-    for i,value in enumerate(result[index]):
-        if value > 0.005:
-            temp += all_tag[i] + ' '
-    if doc_id not in ans:
-        ans[doc_id] = ""
-    ans[doc_id] += temp
+g = open('supervised_lstm_result_'+val_class+'_'+str(nb_epoch),'w')
+all_th = [ 0.3, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
+for th in all_th:
+    for index, doc_id in enumerate(x_id):
+        temp = ""
+        for i,value in enumerate(result[index]):
+            if value > th:
+                temp += all_tag[i] + ' '
+        if doc_id not in ans:
+            ans[doc_id] = ""
+        ans[doc_id] += temp
+
+    precision = []
+    recall =[]
+    f1 = []
+    for index, tags in enumerate(document[val_class]['tags']):
+        doc_id = document[val_class]['id'][index]
+        pre_tag = ""
+        if doc_id in ans:
+            pre_tag = ans[doc_id]
+        p,r,f = f1_score(pre_tag, tags)
+        precision.append(p)
+        recall.append(r)
+        f1.append(f)
+    g.write(str(th)+','+str(np.mean(precision))+','+str(np.mean(recall))+','+str(np.mean(f1))+'\n')
+g.close()
 f = open('lstm.out','w')
 for i in ans:
     f.write(str(i))
@@ -102,18 +120,3 @@ for i in ans:
     f.write(ans[i])
     f.write('\n')
 f.close()
-
-
-precision = []
-recall =[]
-f1 = []
-for index, tags in enumerate(document[val_class]['tags']):
-    doc_id = document[val_class]['id'][index]
-    pre_tag = ""
-    if doc_id in ans:
-        pre_tag = ans[doc_id]
-    p,r,f = f1_score(pre_tag, tags)
-    precision.append(p)
-    recall.append(r)
-    f1.append(f)
-print np.mean(precision), np.mean(recall), np.mean(f1)

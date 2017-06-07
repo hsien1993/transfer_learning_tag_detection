@@ -1,0 +1,6 @@
+python supervised_lstm_classification.py 0
+python supervised_lstm_classification.py 1
+python supervised_lstm_classification.py 2
+python supervised_lstm_classification.py 3
+python supervised_lstm_classification.py 4
+python supervised_lstm_classification.py 5

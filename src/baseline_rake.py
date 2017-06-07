@@ -3,7 +3,7 @@ import pandas as pd
 import evaluate 
 import numpy as np
 data_dir = '/home/hsienchin/transfer_learning_tag_detection/data/'
-with_out_stopwords = '_with_stop_words.csv'
+with_out_stopwords = '_light.csv'
 isBigram = 0
 title_only = 1
 dataframes = {

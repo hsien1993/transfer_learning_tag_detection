@@ -40,7 +40,7 @@ def load_data(data_dir, data_type):
     return dataframes
 
 def word_count(doc):
-    sentence = ' '.join([title for title in doc['title']]) + ' ' + ' '.join([content for content in doc['content']])
+    sentence = ' '.join([str(title) for title in doc['title']]) + ' ' + ' '.join([str(content) for content in doc['content']])
     tokens = word_tokenize(sentence)
     word2count = Counter(tokens)
     return word2count
@@ -159,7 +159,7 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
     max_word_count = float(max(word2count.values()))
     for index, title in enumerate(data_light['title']):
         tags = clean_tag(data_light['tags'][index])
-        for word in tf_idf.clean_string(title):
+        for word in clean_sent(title):
             tf = tf_idf.term_frequency(word, title)
             feature = [ tf, title_idf[word], tf*title_idf[word], 1, word2count[word]/max_word_count,
                         find_position(word, data_with_stop_words['title'][index]) ]
@@ -171,8 +171,8 @@ def make_feature(data_light, data_with_stop_words, negtive_rate=0.9):
                     x.append(feature)
                     y.append([0, 1])
 
-        content = tf_idf.clean_string(data_light['content'][index])
-        for word in content.split():
+        content = clean_sent(data_light['content'][index])
+        for word in content:
             tf = tf_idf.term_frequency(word, content)
             feature = [ tf, content_idf[word], tf*content_idf[word], 0, word2count[word]/max_word_count,
                         find_position(word, data_with_stop_words['content'][index]) ]
